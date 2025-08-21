@@ -5,7 +5,9 @@ const MAX_SESSIONS = 50; // Prevent localStorage overflow
 
 // Generate unique ID for chat sessions
 const generateId = (): string => {
-  return `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const id = `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  console.log('🆔 Generated session ID:', id);
+  return id;
 };
 
 // Get chat history from localStorage
@@ -25,13 +27,24 @@ export const loadHistory = (): ChatSession[] => {
 // Save a chat session to localStorage
 export const saveSession = (session: ChatSession): void => {
   try {
+    console.log('💾 saveSession called with session ID:', session.id);
+    console.log('💾 Session messages count:', session.messages.length);
+    console.log('💾 Session messages:', session.messages.map(m => `${m.role}: ${m.content.substring(0, 30)}...`));
+    
     const sessions = loadHistory();
+    console.log('💾 Current sessions in localStorage:', sessions.length);
+    console.log('💾 Looking for session ID:', session.id);
+    console.log('💾 Existing sessions:', sessions.map(s => s.id));
     
     // Update existing session or add new one
     const existingIndex = sessions.findIndex(s => s.id === session.id);
+    console.log('💾 Found at index:', existingIndex);
+    
     if (existingIndex >= 0) {
+      console.log('💾 Updating existing session at index:', existingIndex);
       sessions[existingIndex] = session;
     } else {
+      console.log('💾 Adding new session');
       sessions.push(session);
     }
     
@@ -41,6 +54,7 @@ export const saveSession = (session: ChatSession): void => {
     }
     
     localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
+    console.log('💾 Successfully saved session to localStorage. Total sessions:', sessions.length);
   } catch (error) {
     console.error('Failed to save chat session:', error);
   }
