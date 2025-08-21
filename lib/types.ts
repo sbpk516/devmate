@@ -36,3 +36,18 @@ export interface ChatStats {
   latencyMs: number;
   approximateTokens: number;
 }
+
+// Chat History Types
+export interface ChatSession {
+  id: string;
+  title: string;
+  timestamp: number;
+  messages: ChatMessage[];
+  model: string;
+  system?: string;
+}
+
+export interface ChatHistoryState {
+  sessions: ChatSession[];
+  currentSessionId: string | null;
+}
