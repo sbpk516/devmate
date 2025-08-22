@@ -87,8 +87,11 @@ export default function Chat() {
           messages = [...oldMessages, ...newMessages];
           console.log('📝 Continuing existing chat:');
           console.log('  - Old messages count:', oldMessages.length);
+          console.log('  - Old messages:', oldMessages.map(m => `${m.role}: ${m.content.substring(0, 50)}...`));
           console.log('  - New messages count:', newMessages.length);
+          console.log('  - New messages:', newMessages.map(m => `${m.role}: ${m.content.substring(0, 50)}...`));
           console.log('  - Total messages count:', messages.length);
+          console.log('  - Combined messages:', messages.map(m => `${m.role}: ${m.content.substring(0, 50)}...`));
         } else {
           // Start new conversation
           messages = [
@@ -96,6 +99,7 @@ export default function Chat() {
             { role: 'assistant' as const, content: responseContent }
           ];
           console.log('🆕 Starting new chat, total messages:', messages.length);
+          console.log('🆕 New messages:', messages.map(m => `${m.role}: ${m.content.substring(0, 50)}...`));
         }
         
         const session: ChatSession = {
@@ -153,7 +157,10 @@ export default function Chat() {
 
     setIsLoading(true);
     setError('');
-    setOutput('');
+    // Only clear output for new chats, preserve for continuing chats
+    if (!currentSessionId) {
+      setOutput('');
+    }
     setStats(null);
     
     const startTime = performance.now();
@@ -469,7 +476,47 @@ export default function Chat() {
         </div>
       )}
 
-      {output && (
+      {/* Display full conversation history */}
+      {currentSessionId && chatHistory.find(s => s.id === currentSessionId)?.messages.length > 0 && (
+        <div className="bg-white rounded-lg shadow-lg p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">Conversation</h2>
+            <CopyIcon 
+              text={(chatHistory.find(s => s.id === currentSessionId)?.messages || []).map(m => `${m.role}: ${m.content}`).join('\n\n')} 
+              size="md" 
+            />
+          </div>
+          <div
+            ref={outputRef}
+            className="bg-gray-50 rounded-md p-4 max-h-96 overflow-y-auto space-y-4"
+          >
+            {(chatHistory.find(s => s.id === currentSessionId)?.messages || []).map((message, index) => (
+              <div key={index} className={`p-3 rounded-lg ${
+                message.role === 'user' 
+                  ? 'bg-blue-100 border border-blue-200 ml-8' 
+                  : 'bg-gray-100 border border-gray-200 mr-8'
+              }`}>
+                <div className="font-semibold text-sm text-gray-700 mb-1">
+                  {message.role === 'user' ? 'You' : 'Assistant'}
+                </div>
+                <div className="whitespace-pre-wrap text-gray-900">
+                  {message.content}
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          {stats && (
+            <div className="mt-4 text-sm text-gray-600">
+              <span className="mr-4">Latency: {stats.latencyMs}ms</span>
+              <span>Approximate tokens: {stats.approximateTokens}</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Display current response for new chats or when no conversation exists */}
+      {(!currentSessionId || !chatHistory.find(s => s.id === currentSessionId)?.messages.length) && output && (
         <div className="bg-white rounded-lg shadow-lg p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900">Response</h2>
