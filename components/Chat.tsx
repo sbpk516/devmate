@@ -372,6 +372,66 @@ export default function Chat() {
         <div className="bg-white rounded-lg shadow-lg p-6">
           <h1 className="text-3xl font-bold text-gray-900 mb-6">DevMate</h1>
         
+        {/* Always display conversation section */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">Conversation</h2>
+            {(currentSessionId && chatHistory.find(s => s.id === currentSessionId)?.messages.length > 0) && (
+              <CopyIcon 
+                text={(chatHistory.find(s => s.id === currentSessionId)?.messages || []).map(m => `${m.role}: ${m.content}`).join('\n\n')} 
+                size="md" 
+              />
+            )}
+          </div>
+          <div
+            ref={outputRef}
+            className="bg-gray-50 rounded-md p-4 max-h-96 overflow-y-auto"
+          >
+            {/* Show conversation messages if they exist */}
+            {currentSessionId && chatHistory.find(s => s.id === currentSessionId)?.messages.length > 0 ? (
+              <div className="space-y-4">
+                {(chatHistory.find(s => s.id === currentSessionId)?.messages || []).map((message, index) => (
+                  <div key={index} className={`p-3 rounded-lg ${
+                    message.role === 'user' 
+                      ? 'bg-blue-100 border border-blue-200 ml-8' 
+                      : 'bg-gray-100 border border-gray-200 mr-8'
+                  }`}>
+                    <div className="font-semibold text-sm text-gray-700 mb-1">
+                      {message.role === 'user' ? 'You' : 'Assistant'}
+                    </div>
+                    <div className="whitespace-pre-wrap text-gray-900">
+                      {message.content}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : output ? (
+              /* Show single response for new chats */
+              <div className="whitespace-pre-wrap text-gray-900">
+                {output}
+              </div>
+            ) : (
+              /* Show empty state */
+              <div className="text-center py-12 text-gray-500">
+                <div className="mb-4">
+                  <svg className="w-16 h-16 mx-auto text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                </div>
+                <p className="text-lg font-medium text-gray-400">Start a conversation</p>
+                <p className="text-sm mt-1">Type your message below and click Submit to begin</p>
+              </div>
+            )}
+          </div>
+          
+          {stats && (
+            <div className="mt-4 text-sm text-gray-600">
+              <span className="mr-4">Latency: {stats.latencyMs}ms</span>
+              <span>Approximate tokens: {stats.approximateTokens}</span>
+            </div>
+          )}
+        </div>
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label htmlFor="prompt" className="block text-sm font-medium text-gray-700 mb-2">
@@ -384,21 +444,6 @@ export default function Chat() {
               className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               rows={4}
               placeholder="Enter your prompt here..."
-              disabled={isLoading}
-            />
-          </div>
-
-          <div>
-            <label htmlFor="system" className="block text-sm font-medium text-gray-700 mb-2">
-              System Message (Optional)
-            </label>
-            <textarea
-              id="system"
-              value={system}
-              onChange={(e) => setSystem(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              rows={2}
-              placeholder="Enter system message..."
               disabled={isLoading}
             />
           </div>
@@ -473,68 +518,6 @@ export default function Chat() {
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-md p-4">
           <p className="text-red-800">{error}</p>
-        </div>
-      )}
-
-      {/* Display full conversation history */}
-      {currentSessionId && chatHistory.find(s => s.id === currentSessionId)?.messages.length > 0 && (
-        <div className="bg-white rounded-lg shadow-lg p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Conversation</h2>
-            <CopyIcon 
-              text={(chatHistory.find(s => s.id === currentSessionId)?.messages || []).map(m => `${m.role}: ${m.content}`).join('\n\n')} 
-              size="md" 
-            />
-          </div>
-          <div
-            ref={outputRef}
-            className="bg-gray-50 rounded-md p-4 max-h-96 overflow-y-auto space-y-4"
-          >
-            {(chatHistory.find(s => s.id === currentSessionId)?.messages || []).map((message, index) => (
-              <div key={index} className={`p-3 rounded-lg ${
-                message.role === 'user' 
-                  ? 'bg-blue-100 border border-blue-200 ml-8' 
-                  : 'bg-gray-100 border border-gray-200 mr-8'
-              }`}>
-                <div className="font-semibold text-sm text-gray-700 mb-1">
-                  {message.role === 'user' ? 'You' : 'Assistant'}
-                </div>
-                <div className="whitespace-pre-wrap text-gray-900">
-                  {message.content}
-                </div>
-              </div>
-            ))}
-          </div>
-          
-          {stats && (
-            <div className="mt-4 text-sm text-gray-600">
-              <span className="mr-4">Latency: {stats.latencyMs}ms</span>
-              <span>Approximate tokens: {stats.approximateTokens}</span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Display current response for new chats or when no conversation exists */}
-      {(!currentSessionId || !chatHistory.find(s => s.id === currentSessionId)?.messages.length) && output && (
-        <div className="bg-white rounded-lg shadow-lg p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Response</h2>
-            <CopyIcon text={output} size="md" />
-          </div>
-          <div
-            ref={outputRef}
-            className="bg-gray-50 rounded-md p-4 max-h-96 overflow-y-auto whitespace-pre-wrap text-gray-900"
-          >
-            {output}
-          </div>
-          
-          {stats && (
-            <div className="mt-4 text-sm text-gray-600">
-              <span className="mr-4">Latency: {stats.latencyMs}ms</span>
-              <span>Approximate tokens: {stats.approximateTokens}</span>
-            </div>
-          )}
         </div>
       )}
     </div>
