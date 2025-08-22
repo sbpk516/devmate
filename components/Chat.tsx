@@ -49,15 +49,15 @@ export default function Chat() {
   console.log('🔄 Chat component render #', Date.now(), 'currentSessionId:', currentSessionId);
 
   // Auto-save helper function
-  const autoSaveChat = useCallback((responseContent: string) => {
+  const autoSaveChat = useCallback((responseContent: string, promptText: string) => {
     console.log('🔍 === AUTO SAVE DEBUG ===');
     console.log('🔍 currentSessionId:', currentSessionId);
     console.log('🔍 chatHistory.length:', chatHistory.length);
     console.log('🔍 chatHistory IDs:', chatHistory.map(s => s.id));
     console.log('🔍 Response content length:', responseContent?.length);
-    console.log('🔍 Prompt:', prompt?.substring(0, 50) + '...');
+            console.log('🔍 Prompt:', promptText?.substring(0, 50) + '...');
     
-    if (responseContent && prompt) {
+    if (responseContent && promptText) {
       try {
         const sessionId = currentSessionId || storage.generateId();
         console.log('🔍 Using sessionId:', sessionId);
@@ -81,7 +81,7 @@ export default function Chat() {
           // Continue existing conversation
           const oldMessages = [...existingSession.messages];
           const newMessages = [
-            { role: 'user' as const, content: prompt },
+            { role: 'user' as const, content: promptText },
             { role: 'assistant' as const, content: responseContent }
           ];
           messages = [...oldMessages, ...newMessages];
@@ -95,7 +95,7 @@ export default function Chat() {
         } else {
           // Start new conversation
           messages = [
-            { role: 'user' as const, content: prompt },
+            { role: 'user' as const, content: promptText },
             { role: 'assistant' as const, content: responseContent }
           ];
           console.log('🆕 Starting new chat, total messages:', messages.length);
@@ -104,7 +104,7 @@ export default function Chat() {
         
         const session: ChatSession = {
           id: sessionId,
-          title: existingSession?.title || (prompt.substring(0, 50) + (prompt.length > 50 ? '...' : '')),
+          title: existingSession?.title || (promptText.substring(0, 50) + (promptText.length > 50 ? '...' : '')),
           timestamp: existingSession?.timestamp || Date.now(),
           messages,
           model,
@@ -145,7 +145,7 @@ export default function Chat() {
         setError('Failed to save chat. Please try again.');
       }
     }
-  }, [prompt, currentSessionId, model, system, chatHistory]); // Added chatHistory to dependencies
+  }, [currentSessionId, model, system, chatHistory]); // Removed prompt from dependencies since we pass it as parameter
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -163,6 +163,12 @@ export default function Chat() {
     }
     setStats(null);
     
+    // Store the current prompt for submission
+    const currentPrompt = prompt;
+    
+    // Auto-clear the prompt after submission
+    setPrompt('');
+    
     const startTime = performance.now();
     
     try {
@@ -173,7 +179,7 @@ export default function Chat() {
         const response = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt, system, model, stream: true }),
+          body: JSON.stringify({ prompt: currentPrompt, system, model, stream: true }),
           signal: abortControllerRef.current.signal,
         });
 
@@ -205,7 +211,7 @@ export default function Chat() {
                 
                 console.log('🔄 Streaming response completed, content length:', content.length);
                 // Auto-save the completed chat
-                autoSaveChat(content);
+                autoSaveChat(content, currentPrompt);
                 return;
               }
               
@@ -227,7 +233,7 @@ export default function Chat() {
         const response = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt, system, model, stream: false }),
+          body: JSON.stringify({ prompt: currentPrompt, system, model, stream: false }),
         });
 
         if (!response.ok) {
@@ -244,7 +250,7 @@ export default function Chat() {
         
         console.log('🔄 Non-streaming response received, content length:', data.content.length);
         // Auto-save the completed chat
-        autoSaveChat(data.content);
+        autoSaveChat(data.content, currentPrompt);
       }
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
@@ -272,6 +278,16 @@ export default function Chat() {
     setOutput('');
     setError('');
     setStats(null);
+  };
+
+  // Handle Enter key press in textarea
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (prompt.trim() && !isLoading) {
+        handleSubmit(e as any);
+      }
+    }
   };
 
   // Chat History Functions
@@ -437,15 +453,34 @@ export default function Chat() {
             <label htmlFor="prompt" className="block text-sm font-medium text-gray-700 mb-2">
               Prompt *
             </label>
-            <textarea
-              id="prompt"
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              rows={4}
-              placeholder="Enter your prompt here..."
-              disabled={isLoading}
-            />
+            <div className="relative">
+              <textarea
+                id="prompt"
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                onKeyDown={handleKeyDown}
+                className="w-full px-3 py-2 pr-12 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                rows={4}
+                placeholder="Enter your prompt here... (Press Enter to submit, Shift+Enter for new line)"
+                disabled={isLoading}
+              />
+              <button
+                type="submit"
+                disabled={isLoading || !prompt.trim()}
+                className="absolute right-2 top-2 p-2 text-gray-400 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (prompt.trim() && !isLoading) {
+                    handleSubmit(e as any);
+                  }
+                }}
+                title="Submit (Enter)"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                </svg>
+              </button>
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-4 items-center">
@@ -483,35 +518,17 @@ export default function Chat() {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="submit"
-              disabled={isLoading || !prompt.trim()}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoading ? 'Generating...' : 'Submit'}
-            </button>
-            
-            {isLoading && (
+          {isLoading && (
+            <div className="flex justify-center">
               <button
                 type="button"
                 onClick={handleStop}
                 className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
               >
-                Stop
+                Stop Generation
               </button>
-            )}
-            
-            {output && (
-              <button
-                type="button"
-                onClick={handleClear}
-                className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
-              >
-                Clear
-              </button>
-            )}
-          </div>
+            </div>
+          )}
         </form>
       </div>
 
