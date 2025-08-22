@@ -55,6 +55,7 @@ export const saveSession = (session: ChatSession): void => {
     
     localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
     console.log('💾 Successfully saved session to localStorage. Total sessions:', sessions.length);
+    console.log('💾 Final session IDs in localStorage:', sessions.map(s => s.id));
   } catch (error) {
     console.error('Failed to save chat session:', error);
   }

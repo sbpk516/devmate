@@ -46,27 +46,30 @@ export default function Chat() {
   }, []);
 
   // Log component render cycles
-  console.log('🔄 Chat component render, currentSessionId:', currentSessionId);
+  console.log('🔄 Chat component render #', Date.now(), 'currentSessionId:', currentSessionId);
 
   // Auto-save helper function
   const autoSaveChat = useCallback((responseContent: string) => {
-    console.log('🔍 autoSaveChat called with:', { 
-      responseContent: responseContent?.substring(0, 50) + '...', 
-      prompt: prompt?.substring(0, 50) + '...', 
-      currentSessionId,
-      chatHistoryLength: chatHistory.length
-    });
+    console.log('🔍 === AUTO SAVE DEBUG ===');
+    console.log('🔍 currentSessionId:', currentSessionId);
+    console.log('🔍 chatHistory.length:', chatHistory.length);
+    console.log('🔍 chatHistory IDs:', chatHistory.map(s => s.id));
+    console.log('🔍 Response content length:', responseContent?.length);
+    console.log('🔍 Prompt:', prompt?.substring(0, 50) + '...');
     
     if (responseContent && prompt) {
       try {
         const sessionId = currentSessionId || storage.generateId();
-        console.log('🔍 Session ID:', sessionId);
+        console.log('🔍 Using sessionId:', sessionId);
+        console.log('🔍 Is this a new session?', !currentSessionId);
         
         // Get existing session if continuing a chat
-        console.log('🔍 Current chatHistory length:', chatHistory.length);
-        console.log('🔍 ChatHistory IDs:', chatHistory.map(s => s.id));
         const existingSession = currentSessionId ? chatHistory.find(s => s.id === currentSessionId) : null;
         console.log('🔍 Found existing session:', !!existingSession);
+        if (existingSession) {
+          console.log('🔍 Existing session title:', existingSession.title);
+          console.log('🔍 Existing session messages count:', existingSession.messages.length);
+        }
         if (existingSession) {
           console.log('🔍 Existing session messages count:', existingSession.messages.length);
           console.log('🔍 Existing session messages:', existingSession.messages.map(m => `${m.role}: ${m.content.substring(0, 30)}...`));
@@ -104,31 +107,41 @@ export default function Chat() {
           system: system || undefined
         };
         
+        console.log('🔍 Session to save:', {
+          id: session.id,
+          title: session.title,
+          messagesCount: session.messages.length,
+          isNew: !currentSessionId
+        });
+        
         storage.saveSession(session);
         console.log('🔍 Before setCurrentSessionId:', currentSessionId);
         setCurrentSessionId(sessionId);
         console.log('🔍 After setCurrentSessionId call (async):', sessionId);
+        
         setChatHistory(prev => {
+          console.log('🔍 Updating chatHistory, previous length:', prev.length);
           const existingIndex = prev.findIndex(s => s.id === sessionId);
+          console.log('🔍 Found existing index in chatHistory:', existingIndex);
+          
           if (existingIndex >= 0) {
             const updated = [...prev];
             updated[existingIndex] = session;
+            console.log('🔍 Updated existing session at index:', existingIndex);
             return updated;
           } else {
+            console.log('🔍 Adding new session to chatHistory');
             return [...prev, session];
           }
         });
         
-        console.log('Auto-saved chat session:', session.title);
-        if (!currentSessionId) {
-          console.log('✅ Chat saved successfully!');
-        }
+        console.log('🔍 === END AUTO SAVE DEBUG ===');
       } catch (error) {
         console.error('Failed to auto-save chat session:', error);
         setError('Failed to save chat. Please try again.');
       }
     }
-  }, [prompt, currentSessionId, model, system, storage]);
+  }, [prompt, currentSessionId, model, system, chatHistory]); // Added chatHistory to dependencies
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
